@@ -1,30 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Growsports LMS</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React & ReactDOM CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel for JSX compilation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Firebase CDN -->
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
-  
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Growsports LMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  body { font-family: 'Inter', sans-serif; }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    // FULL JAVASCRIPT CODE AS PROVIDED ABOVE
-  </script>
+<div id="root"></div>
+
+<script type="text/babel">
+window.onload = function() {
+  const { useState, useEffect, createContext, useContext } = React;
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyBys0t-G2_CcgOWcx564aILnrHr4c4kII4",
+    authDomain: "lmsgs-3553d.firebaseapp.com",
+    projectId: "lmsgs-3553d",
+    storageBucket: "lmsgs-3553d.appspot.com",
+    messagingSenderId: "257801632795",
+    appId: "1:257801632795:web:a6fa6e1eaa537ebfc4ccbe"
+  };
+
+  const app = firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const appId = 'default-app-id';
+
+  const AuthContext = createContext(null);
+
+  // Simple Modal
+  const Modal = ({ message, onConfirm, onCancel, type }) => {
+    if (!message) return null;
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50 p-4">
+        <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm text-center">
+          <p className="text-lg font-semibold mb-6 text-gray-800">{message}</p>
+          <div className="flex justify-center space-x-4">
+            {type==='confirm' && <button onClick={onCancel} className="px-5 py-2 bg-gray-300 rounded-lg">Cancel</button>}
+            <button onClick={onConfirm} className="px-5 py-2 bg-green-600 text-white rounded-lg">OK</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // AuthForm for Login/Signup
+  const AuthForm = ({ type }) => {
+    const { setCurrentUser } = useContext(AuthContext);
+    const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
+    const [error,setError]=useState(''); const [modal,setModal]=useState({message:'',type:''});
+
+    const handleSubmit = async e=>{
+      e.preventDefault(); setError('');
+      try {
+        if(type==='login'){
+          await auth.signInWithEmailAndPassword(email,password);
+        } else {
+          const userCredential = await auth.createUserWithEmailAndPassword(email,password);
+          const user = userCredential.user;
+          await db.doc(`/artifacts/${appId}/users/${user.uid}/user_profile/profile`).set({
+            email:user.email, role:'student', createdAt:new Date().toISOString()
+          });
+          setModal({message:'Sign up successful! You can now log in.', type:'alert'});
+          setEmail(''); setPassword('');
+        }
+      } catch(err){ setError(err.message); }
+    };
+
+    const handleModalConfirm=()=>{ setModal({message:'',type:''}); if(modal.message.includes('Sign up')) setCurrentUser({role:'login'}); };
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+        <Modal {...modal} onConfirm={handleModalConfirm} onCancel={()=>setModal({message:'',type:''})}/>
+        <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl">
+          <h2 className="text-3xl font-extrabold text-center mb-6">{type==='login'?'Login':'Sign Up'}</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full px-5 py-3 border rounded-lg"/>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="w-full px-5 py-3 border rounded-lg"/>
+            {error && <p className="text-red-500 text-center">{error}</p>}
+            <button type="submit" className="w-full py-3 bg-green-600 text-white rounded-lg">{type==='login'?'Sign In':'Create Account'}</button>
+          </form>
+          <p className="mt-6 text-center text-gray-600">
+            {type==='login'?"Don't have an account?":"Already have an account?"} <a href="#" onClick={()=>setCurrentUser({role:type==='login'?'signup':'login'})} className="text-green-600">{type==='login'?'Sign Up':'Log In'}</a>
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const App = () => {
+    const [currentUser,setCurrentUser] = useState(null);
+    const [loading,setLoading] = useState(true);
+
+    useEffect(()=>{
+      const unsubscribe = auth.onAuthStateChanged(async user=>{
+        if(user){
+          const profileRef = db.doc(`/artifacts/${appId}/users/${user.uid}/user_profile/profile`);
+          const docSnap = await profileRef.get();
+          if(docSnap.exists) setCurrentUser({ ...user, ...docSnap.data() });
+          else { await profileRef.set({email:user.email,role:'student',createdAt:new Date().toISOString()}); setCurrentUser({ ...user, role:'student', email:user.email}); }
+        } else { setCurrentUser({role:'login'}); }
+        setLoading(false);
+      });
+      return ()=>unsubscribe();
+    },[]);
+
+    if(loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+
+    if(!currentUser || currentUser.role==='login' || currentUser.role==='signup') return <AuthForm type={currentUser.role}/>;
+    if(currentUser.email==='admin@lms.com') return <div>Admin Panel Placeholder</div>;
+    return <div>Student Dashboard Placeholder</div>;
+  };
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+};
+</script>
 </body>
 </html>
